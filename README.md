@@ -2,6 +2,8 @@
 
 In certain, very specific types of applications, having access to metadata about the available Linux system calls is very useful. One example is intercepting system calls: in order to be able to do anything useful, you would need to figure out which system call you're dealing with, how many parameters does it take and perhaps which, if any, of those is interesting.
 
+Unfortunately, currently Linux itself doesn't expose any programatically useful method of accessing or consuming this type of information about its system calls. This project aims to fill this need.
+
 The motivating example for this project was [dangless-malloc](https://github.com/shdnx/dangless-malloc), which uses this information when intercepting system calls to modify userspace pointer arguments before they are passed to the kernel.
 
 # What is this?
@@ -16,12 +18,12 @@ Currently `linux_syscallmd` works by parsing the `include/linux/syscalls.h` Linu
 
 Tested and working with the following kernel versions:
 
- * 4.4.0-67-generic
+ * `4.4.0-67-generic`
 
 # Requirements
 
  * Python 3
- * Linux kernel header files (usually found at /usr/src/linux-headers-\*)
+ * Linux kernel header files (usually found at `/usr/src/linux-headers-\*`)
 
 # Documentation
 
@@ -51,7 +53,7 @@ Sample:
   SYSCALL_PARAM(1, char __user *, buf, 1)
   SYSCALL_PARAM(2, size_t, count, 0)
   SYSCALL_PARAM(3, unsigned int, flags, 0)
-  SYSCALL_END(__NR_getrandom, long, getrandom, 3, char __user * /* buf */, size_t /* count */, unsigned int /* flags */)
+  SYSCALL_END(__NR_getrandom, getrandom, 3, char __user * /* buf */, size_t /* count */, unsigned int /* flags */)
 #endif
 ```
 
