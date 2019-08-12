@@ -22,7 +22,7 @@ Tested and working with the following kernel versions:
 
 # Requirements
 
- * Python 3
+ * Python 3.6.1 or newer
  * Linux kernel header files (usually found at `/usr/src/linux-headers-\*`)
 
 # Documentation
