@@ -1,12 +1,13 @@
 import os.path
 import re
 from io import StringIO
+from typing import List
 
-from .core import SystemCall, SystemCallParameter
+from .model import SystemCall, SystemCallParameter
 
 # NOTE: a problem with this implementation is that it doesn't, and cannot take into account system call declarations that are inside #if and #ifdefs, such as sys_clone(). Currently this (in kernel version 4.4.0-67-generic) this doesn't seem to pose a problem (besides issuing some -Woverride-init warnings), but it's something to be considered.
 
-def parse_syscalls_h(file_path):
+def parse_syscalls_h(file_path: str) -> List[SystemCall]:
   # System calls are defined similarly to this:
   #
   #   asmlinkage long sys_io_getevents(aio_context_t ctx_id,
@@ -15,10 +16,10 @@ def parse_syscalls_h(file_path):
   #           struct io_event __user *events,
   #           struct timespec __user *timeout);
 
-  FUNC_START_PATTERN = re.compile('^asmlinkage (.*?) sys[_](.*?)[(]')
+  FUNC_START_PATTERN = re.compile('^asmlinkage (?P<return_type>.*?) sys[_](?P<name>.*?)[(]')
   PARAM_NAME_PATTERN = re.compile('^[a-zA-Z_][a-zA-Z_0-9]*$')
 
-  def separate_parameters(text):
+  def separate_parameters(text: str):
     param_buffer = StringIO()
 
     for c in text:
@@ -41,16 +42,16 @@ def parse_syscalls_h(file_path):
     yield False
 
 
-  def is_parameter_type(text):
+  def is_parameter_type(text: str) -> bool:
     return text.endswith("_t") \
       or text in [ "int", "long", "short", "char", "const" ]
 
 
-  def is_incomplete_parameter_type(text):
+  def is_incomplete_parameter_type(text: str) -> bool:
     return text in [ "struct", "enum", "union", "const", "volatile" ]
 
 
-  def parse_parameter(param_text):
+  def parse_parameter(param_text: str) -> SystemCallParameter:
     param_text = param_text.strip()
     param_type = None
     param_name = None
@@ -71,7 +72,7 @@ def parse_syscalls_h(file_path):
         param_name = None
 
     if param_name is not None and PARAM_NAME_PATTERN.match(param_name) is None:
-      raise NotImplementedError("Unable to parse parameter '{}': parsed name '{}' seems invalid!".format(param_text, param_name))
+      raise NotImplementedError(f"Unable to parse parameter '{param_text}': parsed name '{param_name}' seems invalid!")
 
     # sometimes the parameter name is missing, but the type is multiple words - try to detect these cases and fix them
     if param_name is not None:
@@ -85,7 +86,10 @@ def parse_syscalls_h(file_path):
     if param_type == "void" and param_name is None:
       return None
 
-    return SystemCallParameter(param_name, param_type)
+    return SystemCallParameter(
+      name = param_name,
+      type = param_type
+    )
 
 
   # -- end helper functions
@@ -96,7 +100,7 @@ def parse_syscalls_h(file_path):
   with open(file_path, "r") as fp:
     current_syscall = None
 
-    for line in fp.readlines():
+    for line in fp:
       params_text = None
 
       if current_syscall is None:
@@ -104,10 +108,10 @@ def parse_syscalls_h(file_path):
         if m is None:
           continue
 
-        return_type = m.group(1)
-        name = m.group(2)
-
-        current_syscall = SystemCall(name, return_type)
+        current_syscall = SystemCall(
+          name = m.group("name"),
+          return_type = m.group("return_type")
+        )
 
         params_text = line[len(m.group(0)) :]
       else:
@@ -131,6 +135,6 @@ def parse_syscalls_h(file_path):
   return syscalls
 
 
-def load_from_headers(linux_headers_path):
+def load_from_headers(linux_headers_path: str) -> List[SystemCall]:
   header_path = os.path.join(linux_headers_path, "include", "linux", "syscalls.h")
   return parse_syscalls_h(header_path)
