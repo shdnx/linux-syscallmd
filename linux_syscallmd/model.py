@@ -21,3 +21,7 @@ class SystemCall(NamedTuple):
   @property
   def number_macro(self) -> str:
     return f"__NR_{self.name}"
+
+  @property
+  def num_params(self) -> int:
+    return len(self.params)
