@@ -114,7 +114,7 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
           return_type = m.group("return_type").strip()
         )
 
-        sys.stderr.write(f"line '{line}' => beginning to parse {current_syscall}\n")
+        sys.stderr.write(f"line '{line}' => beginning to parse {current_syscall.name}\n")
 
         params_text = line[len(m.group(0)) :]
       else:
