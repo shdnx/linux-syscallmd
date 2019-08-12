@@ -1,7 +1,8 @@
 import os.path
 import re
 from io import StringIO
-from typing import List
+from typing import List, NamedTuple
+import sys
 
 from .model import SystemCall, SystemCallParameter
 
@@ -112,6 +113,8 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
           name = m.group("name").strip(),
           return_type = m.group("return_type").strip()
         )
+
+        sys.stderr.write(f"line '{line}' => beginning to parse {current_syscall}\n")
 
         params_text = line[len(m.group(0)) :]
       else:

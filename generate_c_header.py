@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
 import sys
 import os.path
+from typing import TextIO, List
 
 import linux_syscallmd
 
-def emit_c_header(outs, syscalls):
-  def emit_syscall_signature(outs, macro, syscall):
-    outs.write(macro)
-    outs.write("(")
-    outs.write(syscall.number_macro)
-    outs.write(", ")
-    outs.write(syscall.name)
-    outs.write(", ")
-    outs.write(str(syscall.num_params))
+def emit_c_header(outs: TextIO, syscalls: List[linux_syscallmd.SystemCall]) -> None:
+  def emit_syscall_signature(macro: str, syscall: linux_syscallmd.SystemCall):
+    outs.write(f"{macro}({syscall.number_macro}, {syscall.name}, {syscall.num_params}")
 
     for param in syscall.params:
-      outs.write(", ")
-      outs.write(param.type)
+      outs.write(f", {param.type}")
 
       if not param.is_anonymous:
-        outs.write(" /* ")
-        outs.write(param.name)
-        outs.write(" */")
+        outs.write(f" /* {param.name} */")
 
     outs.write(")")
 
@@ -44,23 +36,24 @@ def emit_c_header(outs, syscalls):
 """)
 
   for syscall in syscalls:
-    outs.write("\n#ifdef {}\n".format(syscall.number_macro))
+    outs.write(f"\n#ifdef {syscall.number_macro}\n")
 
     # write SYSCALL_SIGNATURE()
     outs.write("\t")
-    emit_syscall_signature(outs, "SYSCALL_SIGNATURE", syscall)
+    emit_syscall_signature("SYSCALL_SIGNATURE", syscall)
     outs.write("\n")
 
     for index, param in enumerate(syscall.params):
-      outs.write("\tSYSCALL_PARAM(")
-      outs.write(str(index + 1))
-      outs.write(", ")
-      outs.write(param.type)
-      outs.write(", ")
-      outs.write(param.name if param.name is not None else "ANON")
-      outs.write(", ")
-      outs.write("1" if param.is_user_pointer else "0")
-      outs.write(")\n")
+      outs.write(f"\tSYSCALL_PARAM({index}, {param.type}, {param.name if param.name is not None else "ANON"}, {"1" if param.is_user_pointer else "0"})\n")
+      #outs.write("\tSYSCALL_PARAM(")
+      #outs.write(str(index + 1))
+      #outs.write(", ")
+      #outs.write(param.type)
+      #outs.write(", ")
+      #outs.write(param.name if param.name is not None else "ANON")
+      #outs.write(", ")
+      #outs.write("1" if param.is_user_pointer else "0")
+      #outs.write(")\n")
 
     outs.write("\t")
     emit_syscall_signature(outs, "SYSCALL_END", syscall)
