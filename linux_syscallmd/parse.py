@@ -109,8 +109,8 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
           continue
 
         current_syscall = SystemCall(
-          name = m.group("name"),
-          return_type = m.group("return_type")
+          name = m.group("name").strip(),
+          return_type = m.group("return_type").strip()
         )
 
         params_text = line[len(m.group(0)) :]
@@ -130,7 +130,7 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
         else:
           param = parse_parameter(param_text)
           if param is not None:
-            current_syscall.add_param(param)
+            current_syscall.params.append(param)
 
   return syscalls
 

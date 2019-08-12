@@ -16,7 +16,7 @@ class SystemCallParameter(NamedTuple):
 class SystemCall(NamedTuple):
   name: str
   return_type: str
-  params: List[SystemCallParameter]
+  params: List[SystemCallParameter] = []
 
   @property
   def number_macro(self) -> str:
