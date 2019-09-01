@@ -2,7 +2,6 @@ import os.path
 import re
 from io import StringIO
 from typing import List, NamedTuple
-import sys
 
 from .model import SystemCall, SystemCallParameter
 
@@ -17,30 +16,7 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
   #           struct io_event __user *events,
   #           struct timespec __user *timeout);
 
-  FUNC_START_PATTERN = re.compile('^asmlinkage (?P<return_type>.*?) sys[_](?P<name>.*?)[(]')
-  PARAM_NAME_PATTERN = re.compile('^[a-zA-Z_][a-zA-Z_0-9]*$')
-
-  def separate_parameters(text: str):
-    param_buffer = StringIO()
-
-    for c in text:
-      if c == ")":
-        # the function declaration is over, we're done
-        yield param_buffer.getvalue().strip()
-        yield True # indicate we're completely done
-        return
-      elif c == ",":
-        # the parameter is done
-        yield param_buffer.getvalue().strip()
-
-        # reset the buffer before continuing
-        param_buffer.truncate(0)
-        param_buffer.seek(0)
-      else:
-        param_buffer.write(c)
-
-    # indicate that we haven't encountered a ), parsing should continue in the next line
-    yield False
+  FUNC_START_PATTERN = re.compile(r'^asmlinkage (?P<return_type>.*?) sys[_](?P<name>.*?)[(]')
 
 
   def is_parameter_type(text: str) -> bool:
@@ -53,6 +29,8 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
 
 
   def parse_parameter(param_text: str) -> SystemCallParameter:
+    PARAM_NAME_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z_0-9]*$')
+
     param_text = param_text.strip()
     param_type = None
     param_name = None
@@ -93,7 +71,20 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
     )
 
 
-  # -- end helper functions
+  def handle_syscall_parameter(
+    syscall: SystemCall,
+    param_buffer: StringIO
+  ) -> None:
+    param_text = param_buffer.getvalue().strip()
+
+    # reset the buffer before continuing
+    param_buffer.truncate(0)
+    param_buffer.seek(0)
+
+    param = parse_parameter(param_text)
+    if param is not None:
+      syscall.params.append(param)
+
 
   # TODO: instead of a list, use a dictionary or something
   syscalls = []
@@ -101,9 +92,12 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
   with open(file_path, "r") as fp:
     current_syscall = None
 
-    for line in fp:
-      params_text = None
+    param_buffer = StringIO()
 
+    for line in fp:
+      params_text_to_parse = line
+
+      # if we're not currently parsing a system call, try beginning to parse one
       if current_syscall is None:
         m = FUNC_START_PATTERN.match(line)
         if m is None:
@@ -111,29 +105,28 @@ def parse_syscalls_h(file_path: str) -> List[SystemCall]:
 
         current_syscall = SystemCall(
           name = m.group("name").strip(),
-          return_type = m.group("return_type").strip()
+          return_type = m.group("return_type").strip(),
+          params = []
         )
+        syscalls.append(current_syscall)
 
-        sys.stderr.write(f"line '{line}' => beginning to parse {current_syscall.name}\n")
-
-        params_text = line[len(m.group(0)) :]
-      else:
-        params_text = line
+        params_text_to_parse = line[len(m.group(0)) :]
 
       # parse parameters
-      for param_text in separate_parameters(params_text):
-        if param_text is False:
-          # we're finished with parsing the line, but not finished with parsing the syscall declaration
-          break
-        elif param_text is True:
-          # we're done with parsing this syscall declaration
-          syscalls.append(current_syscall)
+      for c in params_text_to_parse:
+        if c == "\n":
+          continue
+        elif c == "\t":
+          param_buffer.write(' ')
+        elif c == ")":
+          # NOTE: this wouldn't work if e.g. multi-parameter macros or function types were used in syscall declarations
+          handle_syscall_parameter(current_syscall, param_buffer)
           current_syscall = None
           break
+        elif c == ",":
+          handle_syscall_parameter(current_syscall, param_buffer)
         else:
-          param = parse_parameter(param_text)
-          if param is not None:
-            current_syscall.params.append(param)
+          param_buffer.write(c)
 
   return syscalls
 

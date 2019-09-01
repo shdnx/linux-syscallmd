@@ -44,7 +44,9 @@ def emit_c_header(outs: TextIO, syscalls: List[linux_syscallmd.SystemCall]) -> N
     outs.write("\n")
 
     for index, param in enumerate(syscall.params):
-      outs.write(f"\tSYSCALL_PARAM({index}, {param.type}, {param.name if param.name is not None else "ANON"}, {"1" if param.is_user_pointer else "0"})\n")
+      param_name = param.name if param.name is not None else "ANON"
+      param_user_ptr = "1" if param.is_user_pointer else "0"
+      outs.write(f"\tSYSCALL_PARAM({index}, {param.type}, {param_name}, {param_user_ptr})\n")
       #outs.write("\tSYSCALL_PARAM(")
       #outs.write(str(index + 1))
       #outs.write(", ")
@@ -56,7 +58,7 @@ def emit_c_header(outs: TextIO, syscalls: List[linux_syscallmd.SystemCall]) -> N
       #outs.write(")\n")
 
     outs.write("\t")
-    emit_syscall_signature(outs, "SYSCALL_END", syscall)
+    emit_syscall_signature("SYSCALL_END", syscall)
     outs.write("\n")
 
     outs.write("#endif\n")
